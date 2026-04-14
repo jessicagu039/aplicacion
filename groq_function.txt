@@ -1,0 +1,33 @@
+﻿  // ============================================================
+  async function callGeminiAPI(pregunta, respuestaUsuario, tema, esCorrecta) {
+    const apiKey = localStorage.getItem('gemini_api_key') || ''
+    if (!apiKey) {
+      const q = selectedMission?.preguntas[currentQuestion]
+      return q?.fallbackMessage ?? 'Revisa la teoria del tema y vuelve a intentarlo. Puedes!'
+    }
+    const systemPrompt = 'Eres un tutor de fisica experto en Colombia. Tu tono es motivador y pedagogico, usando expresiones locales sutiles (ej: Pilas!, Vas por buen camino, Bacano!). Maximo 4 oraciones por respuesta. No uses markdown.'
+    const userPrompt = 'Tema: ' + tema + '. Pregunta: ' + pregunta + '. Respuesta del estudiante: ' + respuestaUsuario + '. Es correcta?: ' + (esCorrecta ? 'Si' : 'NO') + '. Proporciona retroalimentacion formativa breve y motivadora en espanol.'
+    try {
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + apiKey,
+        },
+        body: JSON.stringify({
+          model: 'llama-3.1-8b-instant',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: 0.7,
+          max_tokens: 200,
+        }),
+      })
+      if (!res.ok) throw new Error('HTTP ' + res.status)
+      const data = await res.json()
+      return data.choices?.[0]?.message?.content?.trim() ?? _fallback(esCorrecta)
+    } catch {
+      return _fallback(esCorrecta)
+    }
+  }

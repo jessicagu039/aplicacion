@@ -1404,48 +1404,40 @@ export default function App() {
   // ============================================================
   // callGeminiAPI — wrapper fetch a Google AI Studio
   // ============================================================
+  // ============================================================
   async function callGeminiAPI(pregunta, respuestaUsuario, tema, esCorrecta) {
     const apiKey = localStorage.getItem('gemini_api_key') || ''
-
-    // Sin clave → fallback inmediato
     if (!apiKey) {
       const q = selectedMission?.preguntas[currentQuestion]
-      return q?.fallbackMessage ?? 'Revisa la teoría del tema y vuelve a intentarlo. ¡Tú puedes!'
+      return q?.fallbackMessage ?? 'Revisa la teoria del tema y vuelve a intentarlo. Puedes!'
     }
-
-    const systemPrompt =
-      'Eres un tutor de física experto en Colombia. ' +
-      'Tu tono es motivador y pedagógico, usando expresiones locales sutiles ' +
-      "(ej: '¡Pilas!', 'Vas por buen camino', '¡Bacano!', '¡Nota!'). " +
-      'Máximo 4 oraciones por respuesta. No uses markdown.'
-
-    const userPrompt =
-      `Tema: "${tema}"\n` +
-      `Pregunta: "${pregunta}"\n` +
-      `Respuesta del estudiante: "${respuestaUsuario}"\n` +
-      `¿Es correcta?: ${esCorrecta ? 'SÍ' : 'NO'}\n` +
-      'Proporciona retroalimentación formativa breve y motivadora en español.'
-
+    const systemPrompt = 'Eres un tutor de fisica experto en Colombia. Tu tono es motivador y pedagogico, usando expresiones familiares con un adolescente. Maximo 4 oraciones por respuesta. No uses markdown.'
+    const userPrompt = 'El estudiante respondio una pregunta de fisica. Tema: "' + tema + '". Pregunta: "' + pregunta + '". El estudiante eligio la opcion: "' + respuestaUsuario + '". Esta respuesta es ' + (esCorrecta ? 'CORRECTA' : 'INCORRECTA') + '. ' + (esCorrecta ? 'Felicita al estudiante y refuerza por que es correcto.' : 'Indica amablemente que es incorrecto y da una pista de la respuesta correcta sin revelarla.')
     try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            system_instruction: { parts: [{ text: systemPrompt }] },
-            contents: [{ parts: [{ text: userPrompt }] }],
-            generationConfig: { temperature: 0.7, maxOutputTokens: 200 },
-          }),
-        }
-      )
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + apiKey,
+        },
+        body: JSON.stringify({
+          model: 'llama-3.1-8b-instant',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: 0.7,
+          max_tokens: 200,
+        }),
+      })
+      if (!res.ok) throw new Error('HTTP ' + res.status)
       const data = await res.json()
-      return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? _fallback(esCorrecta)
+      return data.choices?.[0]?.message?.content?.trim() ?? _fallback(esCorrecta)
     } catch {
       return _fallback(esCorrecta)
     }
   }
+
 
   // Fallback local cuando la API falla
   function _fallback(esCorrecta) {
