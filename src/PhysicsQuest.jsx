@@ -223,5 +223,177 @@ export default function App() {
   const [playerPos, setPlayerPos]               = useState({ x: 10, y: 90 })
   const [completedMissions, setCompletedMissions] = useState([])
 
+  // --- Ref para el intervalo del timer ---
+  const timerRef = useRef(null)
+
+  // ============================================================
+  // EFECTO: temporizador activo solo en QUESTION_BATTLE
+  // ============================================================
+  useEffect(() => {
+    if (currentScene === SCENES.QUESTION_BATTLE) {
+      setTimer(0)
+      timerRef.current = setInterval(() => {
+        setTimer(prev => prev + 1)
+      }, 1000)
+    } else {
+      clearInterval(timerRef.current)
+    }
+    return () => clearInterval(timerRef.current)
+  }, [currentScene, currentQuestion])
+
+  // ============================================================
+  // callGeminiAPI — wrapper fetch a Google AI Studio
+  // ============================================================
+  async function callGeminiAPI(pregunta, respuestaUsuario, tema, esCorrecta) {
+    const apiKey = localStorage.getItem('gemini_api_key') || ''
+
+    // Sin clave → fallback inmediato
+    if (!apiKey) {
+      const q = selectedMission?.preguntas[currentQuestion]
+      return q?.fallbackMessage ?? 'Revisa la teoría del tema y vuelve a intentarlo. ¡Tú puedes!'
+    }
+
+    const systemPrompt =
+      'Eres un tutor de física experto en Colombia. ' +
+      'Tu tono es motivador y pedagógico, usando expresiones locales sutiles ' +
+      "(ej: '¡Pilas!', 'Vas por buen camino', '¡Bacano!', '¡Nota!'). " +
+      'Máximo 4 oraciones por respuesta. No uses markdown.'
+
+    const userPrompt =
+      `Tema: "${tema}"\n` +
+      `Pregunta: "${pregunta}"\n` +
+      `Respuesta del estudiante: "${respuestaUsuario}"\n` +
+      `¿Es correcta?: ${esCorrecta ? 'SÍ' : 'NO'}\n` +
+      'Proporciona retroalimentación formativa breve y motivadora en español.'
+
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: systemPrompt }] },
+            contents: [{ parts: [{ text: userPrompt }] }],
+            generationConfig: { temperature: 0.7, maxOutputTokens: 200 },
+          }),
+        }
+      )
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? _fallback(esCorrecta)
+    } catch {
+      return _fallback(esCorrecta)
+    }
+  }
+
+  // Fallback local cuando la API falla
+  function _fallback(esCorrecta) {
+    const q = selectedMission?.preguntas[currentQuestion]
+    if (q?.fallbackMessage) return q.fallbackMessage
+    return esCorrecta
+      ? '¡Excelente! Respuesta correcta. ¡Sigue así!'
+      : '¡Pilas! Respuesta incorrecta. Revisa la fórmula y vuelve a intentarlo.'
+  }
+
+  // ============================================================
+  // calculateScore — puntuación decreciente + time bonus
+  // ============================================================
+  function calculateScore(attemptsUsed, hintsUsedCount, timeElapsed) {
+    // Puntuación base según número de intento en que acertó
+    const baseByAttempt = { 1: 100, 2: 60, 3: 30 }
+    const base = baseByAttempt[Math.min(attemptsUsed, 3)] ?? 0
+
+    // Penalización por pistas según dificultad
+    const hintPenalty = hintsUsedCount * (selectedMission?.dificultad === 'Maestro' ? 25 : 10)
+
+    // Bonus por rapidez (≤ 30 s)
+    const timeBonus = timeElapsed <= 30 ? 50 : 0
+
+    return Math.max(0, base - hintPenalty + timeBonus)
+  }
+
+  // ============================================================
+  // handleAnswer — valida opción, llama a Gemini, actualiza score
+  // ============================================================
+  async function handleAnswer(optionIndex) {
+    if (aiState === 'thinking') return          // evita doble clic
+    const q       = selectedMission.preguntas[currentQuestion]
+    const esCorr  = optionIndex === q.correcta
+    const newAttempts = attempts + 1
+    setAttempts(newAttempts)
+
+    setAiState('thinking')
+    setAiMessage('')
+
+    const mensaje = await callGeminiAPI(
+      q.enunciado,
+      q.opciones[optionIndex],
+      selectedMission.tema,
+      esCorr
+    )
+    setAiMessage(mensaje)
+    setAiState(esCorr ? 'correct' : 'incorrect')
+
+    if (esCorr) {
+      const earned = calculateScore(newAttempts, hintsUsed, timer)
+      setScore(prev => prev + earned)
+    }
+  }
+
+  // ============================================================
+  // handleHint — pide pista a Gemini y aplica penalización
+  // ============================================================
+  async function handleHint() {
+    if (aiState === 'thinking') return
+    const q           = selectedMission.preguntas[currentQuestion]
+    const newHints    = hintsUsed + 1
+    setHintsUsed(newHints)
+
+    setAiState('thinking')
+    setAiMessage('')
+
+    const apiKey = localStorage.getItem('gemini_api_key') || ''
+    let pista
+
+    if (apiKey) {
+      const systemPrompt =
+        'Eres un tutor de física colombiano. Da una pista pedagógica SIN revelar ' +
+        "la respuesta directa. Usa expresiones locales ('¡Pilas!', 'Dale que se puede'). " +
+        'Máximo 3 oraciones. No uses markdown.'
+      const userPrompt =
+        `Da una pista para esta pregunta de "${selectedMission.tema}": "${q.enunciado}". ` +
+        'No des la respuesta directa.'
+      try {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              system_instruction: { parts: [{ text: systemPrompt }] },
+              contents: [{ parts: [{ text: userPrompt }] }],
+              generationConfig: { temperature: 0.8, maxOutputTokens: 150 },
+            }),
+          }
+        )
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const data = await res.json()
+        pista = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
+      } catch {
+        pista = null
+      }
+    }
+
+    // Fallback si la API no responde o no hay clave
+    if (!pista) {
+      pista = q.fallbackMessage ?? '¡Pilas! Revisa las fórmulas del tema y vuelve a intentarlo.'
+    }
+
+    const penalty = selectedMission.dificultad === 'Maestro' ? 25 : 10
+    setAiMessage(`💡 PISTA (−${penalty} pts): ${pista}`)
+    setAiState('hint')
+  }
+
   return <div>Physics Quest</div>
 }
