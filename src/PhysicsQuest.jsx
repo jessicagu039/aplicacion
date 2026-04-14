@@ -584,6 +584,470 @@ function WorldMap({ missions, completedMissions, playerPos, onSelectMission }) {
 }
 
 // ============================================================
+// ESCENA: INTRO
+// ============================================================
+function SceneIntro({ onStart }) {
+  const [apiKey, setApiKey] = useState(
+    () => localStorage.getItem('gemini_api_key') || ''
+  )
+
+  function handleStart() {
+    if (apiKey.trim()) localStorage.setItem('gemini_api_key', apiKey.trim())
+    else localStorage.removeItem('gemini_api_key')
+    onStart()
+  }
+
+  // Estilos reutilizables locales
+  const logoLetter = (color, extra = {}) => ({
+    fontFamily: FONTS.pixel,
+    fontSize: 'clamp(14px, 3.5vw, 26px)',
+    color,
+    textShadow: `0 0 10px ${color}, 0 0 24px ${color}`,
+    display: 'inline-block',
+    ...extra,
+  })
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: `radial-gradient(ellipse at 50% 40%, #0d1b3e 0%, ${COLORS.bgPrimary} 70%)`,
+      padding: '24px',
+      position: 'relative',
+      overflow: 'hidden',
+    }}>
+
+      {/* Fórmulas flotantes decorativas */}
+      {['F=ma', 'v=d/t', 'λ=v/f', 'W=Fd', 'I=V/R', 'E=mc²'].map((f, i) => (
+        <span key={i} aria-hidden="true" style={{
+          position: 'absolute',
+          fontFamily: FONTS.dialog,
+          fontSize: '15px',
+          color: 'rgba(0,212,255,.11)',
+          left: `${(i * 17 + 5) % 92}%`,
+          top: `${(i * 23 + 8) % 88}%`,
+          transform: `rotate(${i * 22 - 44}deg)`,
+          pointerEvents: 'none',
+          animation: `pqFloat ${3 + i * .4}s ease-in-out infinite ${i * .6}s`,
+        }}>{f}</span>
+      ))}
+
+      {/* Átomo animado */}
+      <div style={{
+        fontSize: '60px',
+        marginBottom: '10px',
+        animation: 'pqFloat 3s ease-in-out infinite',
+        filter: 'drop-shadow(0 0 18px #00d4ff)',
+      }}>⚛️</div>
+
+      {/* Logo pixel: PHYSICS — letras individuales con glow azul */}
+      <div style={{ display: 'flex', gap: '5px', justifyContent: 'center', marginBottom: '4px' }}>
+        {'PHYSICS'.split('').map((ch, i) => (
+          <span key={i} style={logoLetter(COLORS.neonBlue)}>{ch}</span>
+        ))}
+      </div>
+
+      {/* Logo pixel: QUEST — letras con animación pqGlow dorada */}
+      <div style={{ display: 'flex', gap: '5px', justifyContent: 'center', marginBottom: '10px' }}>
+        {'QUEST'.split('').map((ch, i) => (
+          <span key={i} style={logoLetter(COLORS.neonGold, {
+            '--gc': COLORS.neonGold,
+            animation: `pqGlow 2.2s ease-in-out infinite ${i * .12}s`,
+          })}>{ch}</span>
+        ))}
+      </div>
+
+      {/* Badge "RPG EDUCATIVO" */}
+      <p style={{
+        fontFamily: FONTS.pixel, fontSize: '9px',
+        color: COLORS.neonGreen, letterSpacing: '4px',
+        textShadow: `0 0 8px ${COLORS.neonGreen}`,
+        marginBottom: '6px',
+      }}>RPG EDUCATIVO</p>
+
+      {/* Tagline */}
+      <p style={{
+        fontFamily: FONTS.dialog, fontSize: '19px',
+        color: COLORS.textSecondary, letterSpacing: '2px',
+        marginBottom: '28px',
+      }}>Física · Grado 10° · Colombia</p>
+
+      {/* Panel descripción + API key */}
+      <div style={{
+        background: COLORS.bgPanel,
+        border: `2px solid ${COLORS.border}`,
+        padding: '18px 22px',
+        width: '100%', maxWidth: '440px',
+        marginBottom: '24px',
+        position: 'relative',
+      }}>
+        {/* Línea superior degradada */}
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: '2px',
+          background: `linear-gradient(90deg, transparent, ${COLORS.neonBlue}, transparent)`,
+        }}/>
+
+        <p style={{
+          fontFamily: FONTS.dialog, fontSize: '17px',
+          color: COLORS.textPrimary, lineHeight: '1.5',
+          marginBottom: '14px',
+        }}>
+          Embárcate en una aventura épica por el mundo de la física.
+          Completa misiones y aprende con el Profesor Newton.
+        </p>
+
+        <label style={{
+          fontFamily: FONTS.pixel, fontSize: '7px',
+          color: COLORS.textSecondary, display: 'block', marginBottom: '6px',
+        }}>🔑 GEMINI API KEY (OPCIONAL)</label>
+
+        <input
+          type="password"
+          value={apiKey}
+          placeholder="AIzaSy…"
+          onChange={e => setApiKey(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleStart()}
+          style={{
+            width: '100%',
+            background: COLORS.bgCard,
+            border: `1px solid ${COLORS.border}`,
+            color: COLORS.textPrimary,
+            fontFamily: FONTS.dialog, fontSize: '17px',
+            padding: '8px 10px', outline: 'none',
+          }}
+        />
+
+        <p style={{
+          fontFamily: FONTS.dialog, fontSize: '14px',
+          color: COLORS.textSecondary, marginTop: '6px',
+        }}>
+          Sin API key el juego usa retroalimentación predefinida.
+          Con key activa el tutor IA en tiempo real.
+        </p>
+      </div>
+
+      {/* Botón inicio con pqPulse */}
+      <button
+        className="pq-btn pq-btn-blue"
+        onClick={handleStart}
+        style={{
+          fontSize: '11px', padding: '14px 28px',
+          '--mc': COLORS.neonBlue,
+          animation: 'pqPulse 2s ease-in-out infinite',
+        }}
+      >▶ INICIAR AVENTURA</button>
+
+      <p style={{
+        position: 'absolute', bottom: '10px',
+        fontFamily: FONTS.pixel, fontSize: '6px',
+        color: '#252545', textAlign: 'center',
+      }}>REACT 18 · GEMINI 1.5 FLASH · PIXEL ART RPG</p>
+    </div>
+  )
+}
+
+// ============================================================
+// ESCENA: RESULT_SCREEN
+// ============================================================
+function SceneResult({ mission, earnedPoints, totalScore, aiMessage, aiState, onContinue, allDone }) {
+  const MAX_MISSION = 450   // 3 preguntas × 150 pts máx cada una
+  const pct = mission ? Math.min(100, Math.round((earnedPoints / MAX_MISSION) * 100)) : 0
+
+  const rank = pct === 100 ? { label: '¡PERFECTO!',          emoji: '🏆', color: COLORS.neonGold    }
+    : pct >= 70            ? { label: '¡EXCELENTE!',          emoji: '⭐', color: COLORS.neonGreen   }
+    : pct >= 40            ? { label: '¡BIEN HECHO!',         emoji: '👍', color: COLORS.neonBlue    }
+    :                        { label: 'SIGUE PRACTICANDO',    emoji: '📚', color: COLORS.neonOrange  }
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: COLORS.bgPrimary,
+      padding: '24px',
+      maxWidth: '700px',
+      margin: '0 auto',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: '20px',
+      animation: 'pqAppear .6s ease-out',
+    }}>
+
+      {/* Encabezado con emoji y rango */}
+      <div style={{ textAlign: 'center' }}>
+        <div style={{
+          fontSize: '52px',
+          animation: 'pqFloat 2.5s ease-in-out infinite',
+          filter: `drop-shadow(0 0 16px ${rank.color})`,
+        }}>{rank.emoji}</div>
+
+        <h1 style={{
+          fontFamily: FONTS.pixel, fontSize: 'clamp(11px, 2.5vw, 15px)',
+          color: rank.color, textShadow: `0 0 14px ${rank.color}`,
+          marginTop: '8px',
+          '--gc': rank.color, animation: 'pqGlow 2s infinite',
+        }}>{rank.label}</h1>
+
+        {mission && (
+          <p style={{
+            fontFamily: FONTS.dialog, fontSize: '19px',
+            color: COLORS.textSecondary, marginTop: '6px',
+          }}>{mission.icono} {mission.nombre} completada</p>
+        )}
+      </div>
+
+      {/* Panel de puntos */}
+      <div style={{
+        background: COLORS.bgPanel,
+        border: `2px solid ${rank.color}`,
+        boxShadow: `0 0 24px ${rank.color}44`,
+        padding: '20px 28px',
+        width: '100%', maxWidth: '420px',
+        textAlign: 'center',
+        position: 'relative',
+      }}>
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: '2px',
+          background: `linear-gradient(90deg, transparent, ${rank.color}, transparent)`,
+        }}/>
+
+        <p style={{ fontFamily: FONTS.pixel, fontSize: '7px', color: COLORS.textSecondary, marginBottom: '6px' }}>
+          PUNTOS EN ESTA MISIÓN
+        </p>
+
+        {/* Puntos ganados — grande y brillante */}
+        <p style={{
+          fontFamily: FONTS.pixel, fontSize: '32px',
+          color: COLORS.neonGold, textShadow: `0 0 20px ${COLORS.neonGold}`,
+          '--gc': COLORS.neonGold, animation: 'pqGlow 2s infinite',
+        }}>+{earnedPoints}</p>
+
+        <p style={{ fontFamily: FONTS.dialog, fontSize: '16px', color: COLORS.textSecondary, marginTop: '4px' }}>
+          {pct}% del máximo posible
+        </p>
+
+        {/* Barra de porcentaje */}
+        <div style={{
+          height: '8px', background: COLORS.bgCard,
+          border: `1px solid ${COLORS.border}`,
+          margin: '12px 0', overflow: 'hidden',
+        }}>
+          <div style={{
+            height: '100%', width: `${pct}%`,
+            background: `linear-gradient(90deg, ${rank.color}88, ${rank.color})`,
+            transition: 'width 1.2s ease',
+            boxShadow: `0 0 6px ${rank.color}`,
+          }}/>
+        </div>
+
+        <p style={{ fontFamily: FONTS.pixel, fontSize: '9px', color: COLORS.neonBlue }}>
+          TOTAL ACUMULADO:&nbsp;
+          <span style={{ color: COLORS.neonGold }}>{totalScore}</span> PTS
+        </p>
+      </div>
+
+      {/* Asistente IA con el feedback de la última respuesta */}
+      <div style={{ width: '100%', maxWidth: '600px' }}>
+        <AIAssistant message={aiMessage} state={aiState} />
+      </div>
+
+      {/* Botón continuar — etiqueta cambia si todas las misiones están completas */}
+      <button
+        className="pq-btn pq-btn-blue"
+        onClick={onContinue}
+        style={{ fontSize: '10px', padding: '13px 24px' }}
+      >
+        {allDone ? '🏆 VER RESULTADOS FINALES' : '▶ CONTINUAR AVENTURA'}
+      </button>
+    </div>
+  )
+}
+
+// ============================================================
+// ESCENA: FINAL_SCORE
+// ============================================================
+function SceneFinalScore({ missions, completedMissions, missionScores, totalScore, onRestart }) {
+  const MAX_MISSION = 450              // máx por misión
+  const MAX_TOTAL   = missions.length * MAX_MISSION
+  const totalPct    = MAX_TOTAL > 0 ? Math.round((totalScore / MAX_TOTAL) * 100) : 0
+
+  const rank = totalPct >= 90 ? { label: 'MAESTRO DE LA FÍSICA',   emoji: '🏆', color: COLORS.neonGold   }
+    : totalPct >= 70          ? { label: 'FÍSICO EXPERTO',          emoji: '⭐', color: COLORS.neonGreen  }
+    : totalPct >= 50          ? { label: 'EXPLORADOR CIENTÍFICO',   emoji: '🔭', color: COLORS.neonBlue   }
+    :                           { label: 'APRENDIZ DE LA FÍSICA',   emoji: '📚', color: COLORS.neonOrange }
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: `radial-gradient(ellipse at 50% 20%, #0d1b3e 0%, ${COLORS.bgPrimary} 65%)`,
+      padding: '24px',
+      maxWidth: '780px',
+      margin: '0 auto',
+      animation: 'pqAppear .6s ease-out',
+    }}>
+
+      {/* Encabezado épico */}
+      <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+        <div style={{
+          fontSize: '58px',
+          animation: 'pqFloat 3s ease-in-out infinite',
+          filter: `drop-shadow(0 0 20px ${rank.color})`,
+        }}>{rank.emoji}</div>
+
+        <h1 style={{
+          fontFamily: FONTS.pixel,
+          fontSize: 'clamp(10px, 2.5vw, 16px)',
+          color: rank.color,
+          textShadow: `0 0 16px ${rank.color}`,
+          lineHeight: '1.6',
+          marginTop: '10px',
+          '--gc': rank.color,
+          animation: 'pqGlow 2.5s infinite',
+        }}>{rank.label}</h1>
+
+        <p style={{
+          fontFamily: FONTS.dialog, fontSize: '19px',
+          color: COLORS.textSecondary, marginTop: '6px',
+        }}>Aventura completada · Resumen de desempeño</p>
+      </div>
+
+      {/* Puntuación total */}
+      <div style={{
+        background: COLORS.bgPanel,
+        border: `3px solid ${rank.color}`,
+        boxShadow: `0 0 32px ${rank.color}44`,
+        padding: '20px',
+        textAlign: 'center',
+        marginBottom: '24px',
+        position: 'relative',
+      }}>
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: '2px',
+          background: `linear-gradient(90deg, transparent, ${rank.color}, transparent)`,
+        }}/>
+
+        <p style={{ fontFamily: FONTS.pixel, fontSize: '7px', color: COLORS.textSecondary, marginBottom: '8px' }}>
+          PUNTAJE TOTAL
+        </p>
+
+        <p style={{
+          fontFamily: FONTS.pixel, fontSize: '36px',
+          color: COLORS.neonGold, textShadow: `0 0 24px ${COLORS.neonGold}`,
+          '--gc': COLORS.neonGold, animation: 'pqGlow 2s infinite',
+        }}>{totalScore}</p>
+
+        <p style={{ fontFamily: FONTS.dialog, fontSize: '17px', color: COLORS.textSecondary, marginTop: '4px' }}>
+          {totalPct}% del máximo · {completedMissions.length}/{missions.length} misiones completadas
+        </p>
+
+        {/* Barra global de progreso */}
+        <div style={{
+          height: '10px', background: COLORS.bgCard,
+          border: `1px solid ${COLORS.border}`,
+          margin: '14px 0 0', overflow: 'hidden',
+        }}>
+          <div style={{
+            height: '100%', width: `${totalPct}%`,
+            background: `linear-gradient(90deg, ${rank.color}88, ${rank.color})`,
+            transition: 'width 1.4s ease',
+            boxShadow: `0 0 8px ${rank.color}`,
+          }}/>
+        </div>
+      </div>
+
+      {/* Gráfico de barras CSS — rendimiento por misión */}
+      <div style={{
+        background: COLORS.bgPanel,
+        border: `2px solid ${COLORS.border}`,
+        padding: '20px',
+        marginBottom: '24px',
+        position: 'relative',
+      }}>
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: '2px',
+          background: `linear-gradient(90deg, transparent, ${COLORS.neonBlue}, transparent)`,
+        }}/>
+
+        <h2 style={{ fontFamily: FONTS.pixel, fontSize: '9px', color: COLORS.neonBlue, marginBottom: '18px' }}>
+          📊 RENDIMIENTO POR MISIÓN
+        </h2>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          {missions.map(m => {
+            const earned = missionScores[m.id] ?? 0
+            const done   = completedMissions.includes(m.id)
+            const barPct = done ? Math.round((earned / MAX_MISSION) * 100) : 0
+
+            return (
+              <div key={m.id}>
+                {/* Etiqueta de la misión */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+                  <span style={{ fontFamily: FONTS.pixel, fontSize: '7px', color: done ? m.color : COLORS.textSecondary }}>
+                    {m.icono} {m.nombre}
+                  </span>
+                  <span style={{ fontFamily: FONTS.dialog, fontSize: '16px', color: done ? COLORS.neonGold : COLORS.textSecondary }}>
+                    {done ? `${earned} / ${MAX_MISSION} pts` : 'NO COMPLETADA'}
+                  </span>
+                </div>
+
+                {/* Barra CSS con transición */}
+                <div style={{
+                  height: '16px', background: COLORS.bgCard,
+                  border: `1px solid ${COLORS.border}`,
+                  overflow: 'hidden', position: 'relative',
+                }}>
+                  <div style={{
+                    height: '100%',
+                    width: `${barPct}%`,
+                    background: `linear-gradient(90deg, ${m.color}77, ${m.color})`,
+                    boxShadow: `0 0 8px ${m.color}`,
+                    transition: 'width 1.3s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-end',
+                    paddingRight: '5px',
+                  }}>
+                    {/* Porcentaje dentro de la barra si hay espacio */}
+                    {barPct > 18 && (
+                      <span style={{ fontFamily: FONTS.pixel, fontSize: '6px', color: '#0a0a1a' }}>
+                        {barPct}%
+                      </span>
+                    )}
+                  </div>
+                  {/* Porcentaje fuera de la barra si es muy corta */}
+                  {done && barPct <= 18 && (
+                    <span style={{
+                      position: 'absolute', left: '6px', top: '50%',
+                      transform: 'translateY(-50%)',
+                      fontFamily: FONTS.pixel, fontSize: '6px', color: m.color,
+                    }}>{barPct}%</span>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Botón reiniciar */}
+      <div style={{ textAlign: 'center' }}>
+        <button
+          className="pq-btn pq-btn-blue"
+          onClick={onRestart}
+          style={{ fontSize: '10px', padding: '13px 24px' }}
+        >🔄 NUEVA AVENTURA</button>
+
+        <p style={{ fontFamily: FONTS.pixel, fontSize: '6px', color: '#252545', marginTop: '20px' }}>
+          PHYSICS QUEST RPG · EDUCACIÓN FÍSICA GRADO 10° · COLOMBIA
+        </p>
+      </div>
+    </div>
+  )
+}
+
+// ============================================================
 // COMPONENTE PRINCIPAL
 // ============================================================
 export default function App() {
@@ -608,8 +1072,17 @@ export default function App() {
   const [playerPos, setPlayerPos]               = useState({ x: 10, y: 90 })
   const [completedMissions, setCompletedMissions] = useState([])
 
+  // --- Puntuación por misión (para dashboard final) ---
+  const [earnedThisMission, setEarnedThisMission] = useState(0)
+  const [missionScores, setMissionScores]         = useState({})  // { [missionId]: points }
+
   // --- Ref para el intervalo del timer ---
   const timerRef = useRef(null)
+
+  // ============================================================
+  // EFECTO: inyectar estilos y fuentes una sola vez
+  // ============================================================
+  useEffect(() => { injectStyles() }, [])
 
   // ============================================================
   // EFECTO: temporizador activo solo en QUESTION_BATTLE
@@ -723,6 +1196,7 @@ export default function App() {
     if (esCorr) {
       const earned = calculateScore(newAttempts, hintsUsed, timer)
       setScore(prev => prev + earned)
+      setEarnedThisMission(prev => prev + earned)
     }
   }
 
@@ -780,5 +1254,94 @@ export default function App() {
     setAiState('hint')
   }
 
-  return <div>Physics Quest</div>
+  // ============================================================
+  // NAVEGACIÓN — handlers de transición entre escenas
+  // ============================================================
+  function handleStartGame() {
+    setCurrentScene(SCENES.WORLD_MAP)
+  }
+
+  function handleSelectMission(mission) {
+    setSelectedMission(mission)
+    setCurrentQuestion(0)
+    setAttempts(0)
+    setHintsUsed(0)
+    setEarnedThisMission(0)
+    setAiMessage('')
+    setAiState('idle')
+    setPlayerPos({ x: mission.x, y: mission.y })
+    setCurrentScene(SCENES.QUESTION_BATTLE)
+  }
+
+  function handleFinishMission() {
+    setCompletedMissions(prev =>
+      prev.includes(selectedMission.id) ? prev : [...prev, selectedMission.id]
+    )
+    setMissionScores(prev => ({ ...prev, [selectedMission.id]: earnedThisMission }))
+    setCurrentScene(SCENES.RESULT_SCREEN)
+  }
+
+  function handleContinueFromResult() {
+    const allDone = MISSIONS.every(m => completedMissions.includes(m.id))
+    setCurrentScene(allDone ? SCENES.FINAL_SCORE : SCENES.WORLD_MAP)
+  }
+
+  function handleRestart() {
+    setCurrentScene(SCENES.INTRO)
+    setSelectedMission(null)
+    setCurrentQuestion(0)
+    setScore(0)
+    setAttempts(0)
+    setHintsUsed(0)
+    setTimer(0)
+    setAiMessage('')
+    setAiState('idle')
+    setPlayerPos({ x: 10, y: 90 })
+    setCompletedMissions([])
+    setEarnedThisMission(0)
+    setMissionScores({})
+  }
+
+  // ============================================================
+  // RENDER — FSM de escenas
+  // ============================================================
+  if (currentScene === SCENES.INTRO)
+    return <SceneIntro onStart={handleStartGame} />
+
+  if (currentScene === SCENES.RESULT_SCREEN) {
+    const allDone = MISSIONS.every(m => completedMissions.includes(m.id))
+    return (
+      <SceneResult
+        mission={selectedMission}
+        earnedPoints={earnedThisMission}
+        totalScore={score}
+        aiMessage={aiMessage}
+        aiState={aiState}
+        onContinue={handleContinueFromResult}
+        allDone={allDone}
+      />
+    )
+  }
+
+  if (currentScene === SCENES.FINAL_SCORE)
+    return (
+      <SceneFinalScore
+        missions={MISSIONS}
+        completedMissions={completedMissions}
+        missionScores={missionScores}
+        totalScore={score}
+        onRestart={handleRestart}
+      />
+    )
+
+  // Escenas WORLD_MAP y QUESTION_BATTLE — implementadas en el siguiente paso
+  return (
+    <div style={{
+      color: COLORS.textPrimary, padding: '40px',
+      fontFamily: FONTS.dialog, fontSize: '22px',
+      background: COLORS.bgPrimary, minHeight: '100vh',
+    }}>
+      Escena en construcción: <strong style={{ color: COLORS.neonBlue }}>{currentScene}</strong>
+    </div>
+  )
 }
