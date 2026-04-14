@@ -1048,6 +1048,306 @@ function SceneFinalScore({ missions, completedMissions, missionScores, totalScor
 }
 
 // ============================================================
+// ESCENA: WORLD_MAP
+// ============================================================
+function SceneWorldMap({ missions, completedMissions, playerPos, score, onSelectMission, onViewFinalScore }) {
+  const allDone = completedMissions.length === missions.length
+
+  return (
+    <div style={{ minHeight: '100vh', background: COLORS.bgPrimary, padding: '20px', maxWidth: '900px', margin: '0 auto' }}>
+
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
+        <div>
+          <h1 style={{ fontFamily: FONTS.pixel, fontSize: '13px', color: COLORS.neonBlue, textShadow: `0 0 10px ${COLORS.neonBlue}`, marginBottom: '4px' }}>
+            MAPA DEL MUNDO
+          </h1>
+          <p style={{ fontFamily: FONTS.dialog, fontSize: '16px', color: COLORS.textSecondary }}>
+            Selecciona una misión para iniciar el duelo
+          </p>
+        </div>
+        <div style={{ fontFamily: FONTS.pixel, fontSize: '11px', color: COLORS.neonGold, textShadow: `0 0 10px ${COLORS.neonGold}`, background: COLORS.bgPanel, border: `2px solid ${COLORS.neonGold}`, padding: '8px 14px' }}>
+          ⭐ {score} PTS
+        </div>
+      </div>
+
+      {/* Mapa interactivo con nodos y personaje animado */}
+      <div style={{ marginBottom: '16px' }}>
+        <WorldMap
+          missions={missions}
+          completedMissions={completedMissions}
+          playerPos={playerPos}
+          onSelectMission={onSelectMission}
+        />
+      </div>
+
+      {/* Leyenda de misiones */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '10px', marginBottom: '16px' }}>
+        {missions.map((m, idx) => {
+          const done    = completedMissions.includes(m.id)
+          const blocked = idx > 0 && !completedMissions.includes(missions[idx - 1].id)
+          return (
+            <div
+              key={m.id}
+              onClick={() => !blocked && onSelectMission(m)}
+              style={{
+                background: COLORS.bgPanel,
+                border: `2px solid ${done ? COLORS.neonGreen : blocked ? COLORS.border : m.color}`,
+                padding: '10px 14px',
+                cursor: blocked ? 'not-allowed' : 'pointer',
+                opacity: blocked ? .5 : 1,
+                transition: 'box-shadow .25s',
+              }}
+              onMouseEnter={e => { if (!blocked) e.currentTarget.style.boxShadow = `0 0 14px ${m.color}55` }}
+              onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none' }}
+            >
+              <p style={{ fontFamily: FONTS.pixel, fontSize: '7px', color: done ? COLORS.neonGreen : blocked ? COLORS.textSecondary : m.color, marginBottom: '4px' }}>
+                {m.icono} {m.nombre}
+              </p>
+              <p style={{ fontFamily: FONTS.dialog, fontSize: '15px', color: COLORS.textSecondary, marginBottom: '6px' }}>
+                {m.tema}
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontFamily: FONTS.pixel, fontSize: '6px', color: m.dificultad === 'Maestro' ? COLORS.neonRed : COLORS.neonGold, border: `1px solid ${m.dificultad === 'Maestro' ? COLORS.neonRed : COLORS.neonGold}`, padding: '2px 5px' }}>
+                  {m.dificultad}
+                </span>
+                {done    && <span style={{ fontFamily: FONTS.pixel, fontSize: '8px', color: COLORS.neonGreen }}>✓ COMPLETADA</span>}
+                {blocked && <span style={{ fontFamily: FONTS.dialog, fontSize: '14px', color: COLORS.textSecondary }}>🔒 Bloqueada</span>}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Barra de progreso global */}
+      <div style={{ marginBottom: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: FONTS.pixel, fontSize: '7px', color: COLORS.textSecondary, marginBottom: '5px' }}>
+          <span>PROGRESO TOTAL</span>
+          <span style={{ color: COLORS.neonBlue }}>{completedMissions.length}/{missions.length} MISIONES</span>
+        </div>
+        <div style={{ height: '8px', background: COLORS.bgCard, border: `1px solid ${COLORS.border}`, overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${(completedMissions.length / missions.length) * 100}%`, background: `linear-gradient(90deg,${COLORS.neonBlue}88,${COLORS.neonBlue})`, transition: 'width .8s ease', boxShadow: `0 0 6px ${COLORS.neonBlue}` }}/>
+        </div>
+      </div>
+
+      {/* Botón de resultados finales — aparece solo cuando todo está completo */}
+      {allDone && (
+        <div style={{ textAlign: 'center', animation: 'pqAppear .5s ease-out' }}>
+          <button
+            className="pq-btn pq-btn-gold"
+            onClick={onViewFinalScore}
+            style={{ fontSize: '10px', padding: '13px 24px', '--mc': COLORS.neonGold, animation: 'pqPulse 2s infinite' }}
+          >
+            🏆 VER RESULTADOS FINALES
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================================
+// ESCENA: QUESTION_BATTLE
+// ============================================================
+function SceneQuestionBattle({
+  mission, questionIndex, timer, score, attempts, hintsUsed,
+  aiMessage, aiState,
+  onAnswer, onHint, onNextQuestion, onSurrender,
+}) {
+  // pickedIdx: opción seleccionada en el intento en curso.
+  // El componente se remonta con key={questionIndex} en App(), reseteando este estado.
+  const [pickedIdx, setPickedIdx] = useState(null)
+
+  const q       = mission.preguntas[questionIndex]
+  const totalQ  = mission.preguntas.length
+  const isLast  = questionIndex === totalQ - 1
+  const penalty = mission.dificultad === 'Maestro' ? 25 : 10
+
+  const isAnswered = aiState === 'correct' || attempts >= 3
+  const canAnswer  = !isAnswered && aiState !== 'thinking'
+
+  // Color del timer según urgencia
+  const timerColor = timer <= 15 ? COLORS.neonGreen
+    : timer <= 30 ? COLORS.neonGold
+    : COLORS.neonRed
+
+  const LABELS = ['A', 'B', 'C', 'D']
+
+  function handleOptionClick(idx) {
+    if (!canAnswer) return
+    setPickedIdx(idx)
+    onAnswer(idx)
+  }
+
+  // Borde de cada opción según resultado
+  function optionBorder(idx) {
+    if (idx === pickedIdx) {
+      if (aiState === 'thinking')  return COLORS.neonBlue
+      if (aiState === 'correct')   return COLORS.neonGreen
+      if (aiState === 'incorrect') return COLORS.neonRed
+    }
+    if (attempts >= 3 && idx === q.correcta) return COLORS.neonGreen   // revelar tras 3 fallos
+    return COLORS.border
+  }
+
+  // Fondo de cada opción según resultado
+  function optionBg(idx) {
+    if (idx === pickedIdx) {
+      if (aiState === 'thinking')  return 'rgba(0,212,255,.07)'
+      if (aiState === 'correct')   return 'rgba(57,255,20,.08)'
+      if (aiState === 'incorrect') return 'rgba(255,51,102,.08)'
+    }
+    if (attempts >= 3 && idx === q.correcta) return 'rgba(57,255,20,.08)'
+    return 'transparent'
+  }
+
+  return (
+    <div style={{ minHeight: '100vh', background: COLORS.bgPrimary, padding: '16px', maxWidth: '860px', margin: '0 auto' }}>
+
+      {/* ── HEADER ── nombre de misión + métricas */}
+      <div style={{
+        background: COLORS.bgPanel,
+        border: `2px solid ${mission.color}`,
+        boxShadow: `0 0 18px ${mission.color}44`,
+        padding: '10px 16px',
+        marginBottom: '14px',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        flexWrap: 'wrap', gap: '8px',
+        position: 'relative',
+      }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: `linear-gradient(90deg,transparent,${mission.color},transparent)` }}/>
+
+        <div>
+          <p style={{ fontFamily: FONTS.pixel, fontSize: '8px', color: mission.color, marginBottom: '2px' }}>
+            {mission.icono} {mission.nombre}
+          </p>
+          <p style={{ fontFamily: FONTS.dialog, fontSize: '15px', color: COLORS.textSecondary }}>
+            {mission.tema}
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', gap: '18px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontFamily: FONTS.pixel, fontSize: '13px', color: timerColor, textShadow: `0 0 8px ${timerColor}` }}>
+            ⏱ {timer}s
+          </span>
+          <span style={{ fontFamily: FONTS.pixel, fontSize: '9px', color: COLORS.neonGold }}>
+            ⭐ {score}
+          </span>
+          <span style={{ fontFamily: FONTS.pixel, fontSize: '9px', color: attempts > 0 ? COLORS.neonRed : COLORS.textSecondary }}>
+            ✗ {attempts}/3
+          </span>
+        </div>
+      </div>
+
+      {/* ── BARRA DE PROGRESO DE PREGUNTA ── */}
+      <div style={{ marginBottom: '14px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: FONTS.pixel, fontSize: '7px', color: COLORS.textSecondary, marginBottom: '4px' }}>
+          <span>PREGUNTA</span>
+          <span style={{ color: mission.color }}>{questionIndex + 1} / {totalQ}</span>
+        </div>
+        <div style={{ height: '6px', background: COLORS.bgCard, border: `1px solid ${COLORS.border}`, overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${((questionIndex + 1) / totalQ) * 100}%`, background: `linear-gradient(90deg,${mission.color}88,${mission.color})`, transition: 'width .5s ease' }}/>
+        </div>
+      </div>
+
+      {/* ── ENUNCIADO ── */}
+      <div style={{
+        background: COLORS.bgPanel,
+        border: `2px solid ${COLORS.border}`,
+        padding: '18px 20px',
+        marginBottom: '14px',
+        position: 'relative',
+        animation: 'pqAppear .4s ease-out',
+      }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: `linear-gradient(90deg,transparent,${mission.color},transparent)` }}/>
+        <p style={{ fontFamily: FONTS.dialog, fontSize: '22px', color: COLORS.textPrimary, lineHeight: '1.5' }}>
+          {q.enunciado}
+        </p>
+      </div>
+
+      {/* ── OPCIONES DE RESPUESTA ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '10px', marginBottom: '14px' }}>
+        {q.opciones.map((texto, idx) => (
+          <button
+            key={idx}
+            onClick={() => handleOptionClick(idx)}
+            disabled={!canAnswer}
+            style={{
+              background: optionBg(idx),
+              border: `2px solid ${optionBorder(idx)}`,
+              color: optionBorder(idx) === COLORS.border ? COLORS.textPrimary : optionBorder(idx),
+              padding: '12px 15px',
+              cursor: canAnswer ? 'pointer' : 'default',
+              fontFamily: FONTS.dialog,
+              fontSize: '19px',
+              textAlign: 'left',
+              display: 'flex', gap: '10px', alignItems: 'center',
+              transition: 'background .15s, border-color .15s',
+            }}
+            onMouseEnter={e => {
+              if (!canAnswer) return
+              e.currentTarget.style.background   = 'rgba(0,212,255,.08)'
+              e.currentTarget.style.borderColor  = COLORS.neonBlue
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background  = optionBg(idx)
+              e.currentTarget.style.borderColor = optionBorder(idx)
+            }}
+          >
+            <span style={{ fontFamily: FONTS.pixel, fontSize: '9px', color: optionBorder(idx), minWidth: '16px' }}>
+              {LABELS[idx]}
+            </span>
+            {texto}
+          </button>
+        ))}
+      </div>
+
+      {/* ── BOTONES DE ACCIÓN ── */}
+      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '14px', alignItems: 'center' }}>
+
+        {/* Pedir pista — penalización según dificultad */}
+        {!isAnswered && (
+          <button
+            className="pq-btn pq-btn-gold"
+            onClick={onHint}
+            disabled={aiState === 'thinking'}
+            style={{ fontSize: '8px' }}
+          >
+            💡 PEDIR PISTA (−{penalty} pts)
+          </button>
+        )}
+
+        {/* Siguiente / Terminar — aparece tras responder o agotar intentos */}
+        {isAnswered && (
+          <button
+            className="pq-btn pq-btn-green"
+            onClick={onNextQuestion}
+            style={{ fontSize: '9px', padding: '11px 20px' }}
+          >
+            {isLast ? '🏁 TERMINAR MISIÓN' : '► SIGUIENTE PREGUNTA'}
+          </button>
+        )}
+
+        {/* Rendirse — disponible mientras la pregunta no esté resuelta */}
+        {!isAnswered && (
+          <button
+            className="pq-btn pq-btn-red"
+            onClick={onSurrender}
+            disabled={aiState === 'thinking'}
+            style={{ fontSize: '8px', marginLeft: 'auto' }}
+          >
+            🏳 RENDIRSE
+          </button>
+        )}
+      </div>
+
+      {/* ── ASISTENTE IA ── feedback en tiempo real */}
+      <AIAssistant message={aiMessage} state={aiState} />
+    </div>
+  )
+}
+
+// ============================================================
 // COMPONENTE PRINCIPAL
 // ============================================================
 export default function App() {
@@ -1078,6 +1378,8 @@ export default function App() {
 
   // --- Ref para el intervalo del timer ---
   const timerRef = useRef(null)
+  // --- Ref para el timeout de transición al seleccionar misión ---
+  const selectTimerRef = useRef(null)
 
   // ============================================================
   // EFECTO: inyectar estilos y fuentes una sola vez
@@ -1262,15 +1564,19 @@ export default function App() {
   }
 
   function handleSelectMission(mission) {
-    setSelectedMission(mission)
-    setCurrentQuestion(0)
-    setAttempts(0)
-    setHintsUsed(0)
-    setEarnedThisMission(0)
-    setAiMessage('')
-    setAiState('idle')
+    // Mueve el sprite en el mapa (transition CSS 1.2s) antes de cambiar escena
     setPlayerPos({ x: mission.x, y: mission.y })
-    setCurrentScene(SCENES.QUESTION_BATTLE)
+    clearTimeout(selectTimerRef.current)
+    selectTimerRef.current = setTimeout(() => {
+      setSelectedMission(mission)
+      setCurrentQuestion(0)
+      setAttempts(0)
+      setHintsUsed(0)
+      setEarnedThisMission(0)
+      setAiMessage('')
+      setAiState('idle')
+      setCurrentScene(SCENES.QUESTION_BATTLE)
+    }, 1300)
   }
 
   function handleFinishMission() {
@@ -1279,6 +1585,25 @@ export default function App() {
     )
     setMissionScores(prev => ({ ...prev, [selectedMission.id]: earnedThisMission }))
     setCurrentScene(SCENES.RESULT_SCREEN)
+  }
+
+  function handleNextQuestion() {
+    if (currentQuestion < selectedMission.preguntas.length - 1) {
+      // Avanza a la siguiente pregunta y resetea métricas por pregunta
+      setCurrentQuestion(prev => prev + 1)
+      setAttempts(0)
+      setHintsUsed(0)
+      setAiMessage('')
+      setAiState('idle')
+    } else {
+      // Era la última pregunta → finalizar misión
+      handleFinishMission()
+    }
+  }
+
+  function handleSurrender() {
+    // Termina la misión con los puntos acumulados hasta el momento
+    handleFinishMission()
   }
 
   function handleContinueFromResult() {
@@ -1334,14 +1659,43 @@ export default function App() {
       />
     )
 
-  // Escenas WORLD_MAP y QUESTION_BATTLE — implementadas en el siguiente paso
+  if (currentScene === SCENES.WORLD_MAP)
+    return (
+      <SceneWorldMap
+        missions={MISSIONS}
+        completedMissions={completedMissions}
+        playerPos={playerPos}
+        score={score}
+        onSelectMission={handleSelectMission}
+        onViewFinalScore={() => setCurrentScene(SCENES.FINAL_SCORE)}
+      />
+    )
+
+  if (currentScene === SCENES.QUESTION_BATTLE && selectedMission)
+    return (
+      // key={currentQuestion} remonta el componente en cada pregunta,
+      // reseteando pickedIdx y la animación del enunciado
+      <SceneQuestionBattle
+        key={currentQuestion}
+        mission={selectedMission}
+        questionIndex={currentQuestion}
+        timer={timer}
+        score={score}
+        attempts={attempts}
+        hintsUsed={hintsUsed}
+        aiMessage={aiMessage}
+        aiState={aiState}
+        onAnswer={handleAnswer}
+        onHint={handleHint}
+        onNextQuestion={handleNextQuestion}
+        onSurrender={handleSurrender}
+      />
+    )
+
+  // Fallback de seguridad (no debería alcanzarse)
   return (
-    <div style={{
-      color: COLORS.textPrimary, padding: '40px',
-      fontFamily: FONTS.dialog, fontSize: '22px',
-      background: COLORS.bgPrimary, minHeight: '100vh',
-    }}>
-      Escena en construcción: <strong style={{ color: COLORS.neonBlue }}>{currentScene}</strong>
+    <div style={{ color: COLORS.textPrimary, padding: '40px', fontFamily: FONTS.dialog, fontSize: '22px', background: COLORS.bgPrimary, minHeight: '100vh' }}>
+      Escena desconocida: <strong style={{ color: COLORS.neonRed }}>{currentScene}</strong>
     </div>
   )
 }
